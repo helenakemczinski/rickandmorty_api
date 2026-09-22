@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiverso</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+
+    <script src="busca.js" defer></script>
+</head>
+
+<body class="pagina-busca">
+
+    <main class="capa">
+
+        <div class="portal" aria-hidden="true"></div>
+
+        <h1 class="capa-titulo">Multiverso</h1>
+        <p class="capa-subtitulo">Procure um personagem de Rick and Morty pelo nome ou pelo número.</p>
+
+        <div class="busca">
+            <input
+                type="text"
+                id="campo-busca"
+                class="busca-campo"
+                placeholder="Ex.: morty ou 1"
+                autocomplete="off"
+                aria-label="Nome ou número do personagem"
+            >
+            <button id="botao-busca" class="busca-botao" type="button">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                Buscar
+            </button>
+        </div>
+
+        <p id="mensagem-erro" class="mensagem-erro" role="alert" hidden></p>
+
+        <div class="sugestoes">
+            <span>Tente:</span>
+            <button class="sugestao" type="button" data-busca="rick">rick</button>
+            <button class="sugestao" type="button" data-busca="2">2</button>
+            <button class="sugestao" type="button" data-busca="birdperson">birdperson</button>
+            <button class="sugestao" type="button" data-busca="pickle">pickle</button>
+        </div>
+
+        <section id="resultados" class="resultados" hidden>
+            <h2 id="resultados-titulo" class="resultados-titulo"></h2>
+            <ul id="lista-resultados" class="lista-resultados"></ul>
+        </section>
+
+    </main>
+
+</body>
+
+</html>
