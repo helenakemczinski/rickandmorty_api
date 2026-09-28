@@ -1,5 +1,3 @@
-const API_URL = "https://rickandmortyapi.com/api";
-
 const campoBusca = document.getElementById("campo-busca");
 const botaoBusca = document.getElementById("botao-busca");
 const mensagemErro = document.getElementById("mensagem-erro");
@@ -15,8 +13,52 @@ function esconderErro() {
     mensagemErro.hidden = true;
 }
 
+function esconderResultados() {
+    if (!resultados) {
+        return;
+    }
+
+    resultados.hidden = true;
+}
+
 function linkDoPersonagem(id) {
     return `personagem.html?id=${id}`;
+}
+
+function textoDaFalha(erro, digitado) {
+    if (erro instanceof PersonagemNaoEncontrado) {
+        return `Nenhum personagem encontrado para "${digitado}".`;
+    }
+
+    return "Não foi possível falar com a Rick and Morty API. Confira sua internet e tente de novo.";
+}
+
+function tituloDosResultados(mostrados, total, digitado) {
+    if (total > mostrados) {
+        return `Mostrando ${mostrados} de ${total} resultados para "${digitado}"`;
+    }
+
+    return `${total} resultados para "${digitado}"`;
+}
+
+function criarCartaoDeResultado(personagem) {
+    const item = criarElemento("li", "");
+    const link = criarElemento("a", `resultado status-${personagem.status.toLowerCase()}`);
+    const foto = criarElemento("img", "");
+
+    link.href = linkDoPersonagem(personagem.id);
+    foto.src = personagem.image;
+    foto.alt = "";
+    foto.loading = "lazy";
+
+    link.append(
+        foto,
+        criarElemento("span", "resultado-nome", personagem.name),
+        criarElemento("span", "resultado-especie", personagem.species)
+    );
+    item.appendChild(link);
+
+    return item;
 }
 
 function mostrarResultados(personagens, total, digitado) {
@@ -24,39 +66,40 @@ function mostrarResultados(personagens, total, digitado) {
     const lista = document.getElementById("lista-resultados");
 
     lista.innerHTML = "";
-    titulo.textContent = total > personagens.length
-        ? `Mostrando ${personagens.length} de ${total} resultados para "${digitado}"`
-        : `${total} resultados para "${digitado}"`;
+    titulo.textContent = tituloDosResultados(personagens.length, total, digitado);
 
     personagens.forEach((personagem) => {
-        const item = document.createElement("li");
-
-        const link = document.createElement("a");
-        link.classList.add("resultado", `status-${personagem.status.toLowerCase()}`);
-        link.href = linkDoPersonagem(personagem.id);
-
-        const foto = document.createElement("img");
-        foto.src = personagem.image;
-        foto.alt = "";
-        foto.loading = "lazy";
-
-        const nome = document.createElement("span");
-        nome.classList.add("resultado-nome");
-        nome.textContent = personagem.name;
-
-        const especie = document.createElement("span");
-        especie.classList.add("resultado-especie");
-        especie.textContent = personagem.species;
-
-        link.append(foto, nome, especie);
-        item.appendChild(link);
-        lista.appendChild(item);
+        lista.appendChild(criarCartaoDeResultado(personagem));
     });
 
     resultados.hidden = false;
 }
 
-async function buscarPersonagem() {
+async function listarPersonagensComNome(digitado) {
+    botaoBusca.disabled = true;
+
+    try {
+        const encontrados = await buscarPersonagensPorNome(digitado);
+        const abrirFichaDireto = encontrados.results.length === 1 || !resultados;
+
+        if (abrirFichaDireto) {
+            window.location.href = linkDoPersonagem(encontrados.results[0].id);
+            return;
+        }
+
+        mostrarResultados(encontrados.results, encontrados.info.count, digitado);
+    } catch (erro) {
+        if (erro instanceof PersonagemNaoEncontrado) {
+            esconderResultados();
+        }
+
+        mostrarErro(textoDaFalha(erro, digitado));
+    } finally {
+        botaoBusca.disabled = false;
+    }
+}
+
+async function buscarPersonagemDigitado() {
     const digitado = campoBusca.value.trim();
 
     if (digitado === "") {
@@ -67,54 +110,27 @@ async function buscarPersonagem() {
 
     esconderErro();
 
-    if (/^\d+$/.test(digitado)) {
+    const buscaPorNumero = /^\d+$/.test(digitado);
+
+    if (buscaPorNumero) {
         window.location.href = linkDoPersonagem(Number(digitado));
         return;
     }
 
-    botaoBusca.disabled = true;
-
-    try {
-        const resposta = await fetch(`${API_URL}/character/?name=${encodeURIComponent(digitado)}`);
-
-        if (resposta.status === 404) {
-            if (resultados) {
-                resultados.hidden = true;
-            }
-            mostrarErro(`Nenhum personagem encontrado para "${digitado}".`);
-            return;
-        }
-
-        if (!resposta.ok) {
-            throw new Error(`Erro ${resposta.status}`);
-        }
-
-        const dados = await resposta.json();
-
-        if (dados.results.length === 1 || !resultados) {
-            window.location.href = linkDoPersonagem(dados.results[0].id);
-            return;
-        }
-
-        mostrarResultados(dados.results, dados.info.count, digitado);
-    } catch (erro) {
-        mostrarErro("Não foi possível falar com a Rick and Morty API. Confira sua internet e tente de novo.");
-    } finally {
-        botaoBusca.disabled = false;
-    }
+    await listarPersonagensComNome(digitado);
 }
 
-botaoBusca.addEventListener("click", buscarPersonagem);
+botaoBusca.addEventListener("click", buscarPersonagemDigitado);
 
 campoBusca.addEventListener("keydown", (evento) => {
     if (evento.key === "Enter") {
-        buscarPersonagem();
+        buscarPersonagemDigitado();
     }
 });
 
 document.querySelectorAll(".sugestao").forEach((botao) => {
     botao.addEventListener("click", () => {
         campoBusca.value = botao.dataset.busca;
-        buscarPersonagem();
+        buscarPersonagemDigitado();
     });
 });

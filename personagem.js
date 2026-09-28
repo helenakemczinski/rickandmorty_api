@@ -25,45 +25,31 @@ function mostrarAviso(texto) {
     aviso.hidden = false;
 }
 
-function formatarNumero(id) {
-    return `Nº ${String(id).padStart(3, "0")}`;
+function mostrarFicha() {
+    carregando.hidden = true;
+    ficha.hidden = false;
 }
 
-function formatarData(texto) {
-    const data = new Date(texto);
+function formatarNumeroDoPersonagem(numero) {
+    return `Nº ${String(numero).padStart(3, "0")}`;
+}
+
+function formatarData(dataIso) {
+    const data = new Date(dataIso);
 
     if (Number.isNaN(data.getTime())) {
-        return texto;
+        return dataIso;
     }
 
     return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function idDaUrl(url) {
+function idNoFinalDaUrl(url) {
     return url.split("/").pop();
 }
 
-async function buscarEpisodios(urls) {
-    const ids = urls.slice(0, MAXIMO_DE_EPISODIOS).map(idDaUrl);
-
-    if (ids.length === 0) {
-        return [];
-    }
-
-    try {
-        const resposta = await fetch(`${API_URL}/episode/${ids.join(",")}`);
-
-        if (!resposta.ok) {
-            return null;
-        }
-
-        const dados = await resposta.json();
-
-        // Com um id só a API devolve um objeto, com vários devolve uma lista
-        return Array.isArray(dados) ? dados : [dados];
-    } catch (erro) {
-        return null;
-    }
+function idsDosPrimeirosEpisodios(urls) {
+    return urls.slice(0, MAXIMO_DE_EPISODIOS).map(idNoFinalDaUrl);
 }
 
 function preencherIdentidade(personagem) {
@@ -73,7 +59,7 @@ function preencherIdentidade(personagem) {
     foto.alt = `Retrato de ${personagem.name}`;
 
     document.title = `${personagem.name} | Multiverso`;
-    document.getElementById("numero").textContent = formatarNumero(personagem.id);
+    document.getElementById("numero").textContent = formatarNumeroDoPersonagem(personagem.id);
     document.getElementById("nome").textContent = personagem.name;
     document.getElementById("especie").textContent = personagem.type
         ? `${personagem.species} · ${personagem.type}`
@@ -82,10 +68,13 @@ function preencherIdentidade(personagem) {
 
 function preencherEtiquetas(personagem) {
     const status = personagem.status.toLowerCase();
+    const genero = personagem.gender.toLowerCase();
 
     document.getElementById("status").textContent = NOMES_DOS_STATUS[status] ?? personagem.status;
-    document.getElementById("genero").textContent = NOMES_DOS_GENEROS[personagem.gender.toLowerCase()] ?? personagem.gender;
+    document.getElementById("genero").textContent = NOMES_DOS_GENEROS[genero] ?? personagem.gender;
+}
 
+function aplicarTemaDoStatus(status) {
     document.body.classList.add(`tema-${status}`);
 }
 
@@ -95,47 +84,51 @@ function preencherLugares(personagem) {
     document.getElementById("total-episodios").textContent = personagem.episode.length;
 }
 
+function criarLinhaDeEpisodio(episodio) {
+    const linha = criarElemento("li", "episodio");
+
+    linha.append(
+        criarElemento("span", "episodio-codigo", episodio.episode),
+        criarElemento("span", "episodio-nome", episodio.name),
+        criarElemento("span", "episodio-data", formatarData(episodio.air_date))
+    );
+
+    return linha;
+}
+
 function preencherEpisodios(episodios, total) {
-    const lista = document.getElementById("episodios");
+    const listaEpisodios = document.getElementById("episodios");
 
     if (!episodios) {
-        const item = document.createElement("li");
-        item.classList.add("episodio-vazio");
-        item.textContent = "Episódios indisponíveis no momento.";
-        lista.appendChild(item);
+        listaEpisodios.appendChild(criarElemento("li", "episodio-vazio", "Episódios indisponíveis no momento."));
         return;
     }
 
     episodios.forEach((episodio) => {
-        const item = document.createElement("li");
-        item.classList.add("episodio");
-
-        const codigo = document.createElement("span");
-        codigo.classList.add("episodio-codigo");
-        codigo.textContent = episodio.episode;
-
-        const nome = document.createElement("span");
-        nome.classList.add("episodio-nome");
-        nome.textContent = episodio.name;
-
-        const data = document.createElement("span");
-        data.classList.add("episodio-data");
-        data.textContent = formatarData(episodio.air_date);
-
-        item.append(codigo, nome, data);
-        lista.appendChild(item);
+        listaEpisodios.appendChild(criarLinhaDeEpisodio(episodio));
     });
 
-    if (total > episodios.length) {
-        const resto = document.createElement("li");
-        resto.classList.add("episodio-vazio");
-        resto.textContent = `e mais ${total - episodios.length} episódio(s)`;
-        lista.appendChild(resto);
+    const episodiosDeFora = total - episodios.length;
+
+    if (episodiosDeFora > 0) {
+        listaEpisodios.appendChild(criarElemento("li", "episodio-vazio", `e mais ${episodiosDeFora} episódio(s)`));
     }
 }
 
+function preencherFicha(personagem, episodios) {
+    preencherIdentidade(personagem);
+    preencherEtiquetas(personagem);
+    aplicarTemaDoStatus(personagem.status.toLowerCase());
+    preencherLugares(personagem);
+    preencherEpisodios(episodios, personagem.episode.length);
+}
+
+function idDaPagina() {
+    return new URLSearchParams(window.location.search).get("id");
+}
+
 async function carregarPersonagem() {
-    const id = new URLSearchParams(window.location.search).get("id");
+    const id = idDaPagina();
 
     if (!id) {
         mostrarAviso("Nenhum personagem foi informado. Volte e faça uma busca.");
@@ -143,29 +136,17 @@ async function carregarPersonagem() {
     }
 
     try {
-        const resposta = await fetch(`${API_URL}/character/${encodeURIComponent(id)}`);
+        const personagem = await buscarPersonagemPorId(id);
+        const episodios = await buscarEpisodios(idsDosPrimeirosEpisodios(personagem.episode));
 
-        if (resposta.status === 404) {
-            mostrarAviso(`Não existe personagem com o número "${id}".`);
-            return;
-        }
-
-        if (!resposta.ok) {
-            throw new Error(`Erro ${resposta.status}`);
-        }
-
-        const personagem = await resposta.json();
-        const episodios = await buscarEpisodios(personagem.episode);
-
-        preencherIdentidade(personagem);
-        preencherEtiquetas(personagem);
-        preencherLugares(personagem);
-        preencherEpisodios(episodios, personagem.episode.length);
-
-        carregando.hidden = true;
-        ficha.hidden = false;
+        preencherFicha(personagem, episodios);
+        mostrarFicha();
     } catch (erro) {
-        mostrarAviso("Não foi possível carregar os dados da Rick and Morty API. Confira sua internet e tente de novo.");
+        if (erro instanceof PersonagemNaoEncontrado) {
+            mostrarAviso(`Não existe personagem com o número "${id}".`);
+        } else {
+            mostrarAviso("Não foi possível carregar os dados da Rick and Morty API. Confira sua internet e tente de novo.");
+        }
     }
 }
 

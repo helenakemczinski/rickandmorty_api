@@ -13,4 +13,11 @@ Cada ficha faz duas requisições:
 
 A cor da página muda com o status: verde vivo, vermelho morto, cinza desconhecido.
 
+Quatro arquivos de script, nesta ordem de carregamento:
+
+1. `dom.js`: cria elemento com classe e texto, usado pelas duas telas
+2. `rickandmorty.js`: o único que fala com a API
+3. `busca.js`: o campo de busca, que existe nas duas páginas
+4. `personagem.js`: monta a ficha
+
 Abre o `index.html` com internet ligada. Não precisa instalar nada.
